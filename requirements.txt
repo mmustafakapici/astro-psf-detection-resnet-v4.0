@@ -1,0 +1,43 @@
+# PyTorch and torchvision for deep learning models
+torch==2.2.0
+torchvision==0.17.0
+
+# Numerical and data processing
+numpy
+pandas
+
+# Astronomy and FITS file handling
+astropy
+photutils
+
+# Image processing and visualization
+opencv-python-headless
+matplotlib
+scikit-image
+scikit-learn
+scipy
+
+# Logging and progress tracking
+tqdm
+
+# Configuration and YAML handling
+pyyaml
+
+notebook
+
+# PyTorch Lightning for training
+torchmetrics
+torchmetrics[detection]
+
+# Optional dependencies
+wandb 
+tensorboard 
+torchsummary 
+netron 
+onnx 
+torchviz
+
+astroquery
+
+sep
+

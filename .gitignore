@@ -1,0 +1,19 @@
+# .gitignore
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.DS_Store
+.vscode/
+.idea/
+*.fits
+results/
+data/
+model-summary/wandb/
+
+wandb_key.txt
+wandb/
+
+line-generator/generated_star_trails
