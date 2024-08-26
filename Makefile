@@ -1,5 +1,5 @@
 # Default targets
-.PHONY: all setup create-dirs download-test-data download-sdss-data annotate draw train test test-real clean help line-generate details
+.PHONY: all all-DDP setup create-dirs download-test-data download-sdss-data annotate draw train test test-real clean help line-generate details
 # Python environment
 PYTHON=python
 
@@ -7,7 +7,9 @@ PYTHON=python
 CONFIG=config/config.yaml
 
 # Default target
-all: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control train 
+all: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control train test
+
+all-DDP: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control train-DDP test
 
 # Kurulum
 setup:
@@ -18,20 +20,14 @@ create-dirs:
 	@echo "Creating directories..."
 	$(PYTHON) src/create_dirs.py
 
-# Veri indirme ve çıkarma
 download-test-data:
 	@echo "Downloading and extracting data..."
 	$(PYTHON) src/download_test_data.py
-
-download-sdss-catalog:
-	@echo "Downloading and extracting data..."
-	$(PYTHON) src/download_sdss_fits_with_catalog.py
 
 download-sdss-data:
 	@echo "Downloading and extracting data..."
 	$(PYTHON) src/download_sdss_data.py
 
-# Annotasyon
 annotate:
 	@echo "Annotating code with type hints..."
 	$(PYTHON) src/annotate.py
@@ -43,8 +39,7 @@ line-generate:
 details:
 	@echo "Details..."
 	$(PYTHON) src/extract_details.py
-	
-# Annotasyon çizme
+
 draw:
 	@echo "Drawing annotations on images sets..."
 	$(PYTHON) src/draw_annotations.py
@@ -66,10 +61,6 @@ test:
 	@echo "test data tests..."
 	$(PYTHON) src/test_test_data.py
 
-#modeli kullanarak real test
-test-real:
-	@echo "Real data..."
-	$(PYTHON) src/test_real_data.py
 
 
 # Temizlik
@@ -98,7 +89,6 @@ help:
 	@echo "  make draw:           Draw annotations on images sets"
 	@echo "  make train:          Train model"
 	@echo "  make test:           Run tests on test data"
-	@echo "  make test-real:      Run tests on real data"
 	@echo "  make clean:          Clean temporary files"
 	@echo "  make setup:          Set up environment"
 	@echo "  make help:           Show this help message"

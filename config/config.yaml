@@ -16,8 +16,8 @@ data:
   validation_set_dir: 'data/raw/validationset/'
   test_set_dir: 'data/raw/testset/'
   real_set_dir: 'data/raw/testset_real/'
-  train_fits_number: 5
-  val_fits_number: 5
+  train_fits_number: 300
+  val_fits_number: 50
   
   bands: ['g'] 
   
@@ -44,8 +44,8 @@ model:
   input_size: 512 
   num_classes: 2
   learning_rate: 0.0001
-  num_epochs: 3
-  batch_size: 1 #40gb gpu usage in 50 batch
+  num_epochs: 50
+  batch_size: 50 #40gb gpu usage in 50 batch
   num_workers: 4
   pretrained_weights: 'coco'  # 'default',  'imagenet' , 'coco' , 'voc'
 
@@ -64,7 +64,7 @@ wandb:
 
 
 lines:
-  num_train: 5
-  num_val: 5
-  num_test: 5
+  num_train: 250
+  num_val: 50
+  num_test: 50
   output_dir: 'data/raw/lines'

@@ -1,9 +1,10 @@
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader, DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
 from tqdm import tqdm
 from utils import load_config, mean_average_precision
-from data_preprocessing import AstroDataset, collate_fn
+from data_preprocessing import AstroDataset, LineDataset, collate_fn
 from model import faster_rcnn_resnet50_model
 from concurrent.futures import ThreadPoolExecutor
 import yaml
@@ -13,19 +14,10 @@ import numpy as np
 import wandb
 import os
 import shutil
-import torch.multiprocessing as mp
-import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel as DDP
 
-def setup(rank, world_size):
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
-
-def cleanup():
-    dist.destroy_process_group()
-
-def train_one_epoch(model, optimizer, data_loader, device, epoch, rank):
+def train_one_epoch(model, optimizer, data_loader, device, epoch):
     model.train()
-    for images, targets in tqdm(data_loader, desc=f"Epoch {epoch} (Rank {rank})", disable=rank!=0):
+    for images, targets in tqdm(data_loader, desc=f"Epoch {epoch}"):
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -36,14 +28,15 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, rank):
         losses.backward()
         optimizer.step()
 
-        if rank == 0:  # Sadece rank 0'da WandB loglaması yap
+        # wandb log the loss (only log on rank 0)
+        if torch.distributed.get_rank() == 0:
             wandb.log({"loss": losses.item()}, step=epoch)
 
-def evaluate(model, data_loader, device, rank):
+def evaluate(model, data_loader, device):
     model.eval()
     all_pred_boxes = []
     all_true_boxes = []
-    for images, targets in tqdm(data_loader, desc=f"Evaluating (Rank {rank})", disable=rank!=0):
+    for images, targets in tqdm(data_loader, desc="Evaluating"):
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -65,9 +58,9 @@ def evaluate(model, data_loader, device, rank):
     return all_true_boxes, all_pred_boxes
 
 def map_scores(all_true_boxes, all_pred_boxes):
-    map30 = mean_average_precision(all_true_boxes, all_pred_boxes, iou_threshold=0.3, num_classes=2)
-    map50 = mean_average_precision(all_true_boxes, all_pred_boxes, iou_threshold=0.5, num_classes=2)
-    map75 = mean_average_precision(all_true_boxes, all_pred_boxes, iou_threshold=0.75, num_classes=2)
+    map30 = mean_average_precision(all_pred_boxes, all_true_boxes, iou_threshold=0.3, num_classes=2)
+    map50 = mean_average_precision(all_pred_boxes, all_true_boxes, iou_threshold=0.5, num_classes=2)
+    map75 = mean_average_precision(all_pred_boxes, all_true_boxes, iou_threshold=0.75, num_classes=2)
     return map30, map50, map75
 
 class NumpyDumper(yaml.SafeDumper):
@@ -78,126 +71,152 @@ class NumpyDumper(yaml.SafeDumper):
             return self.represent_float(float(data))
         return super().represent_data(data)
 
-def save_map_scores(map30, map50, map75, epoch, checkpoint_dir, rank):
-    if rank == 0:  # Sadece rank 0'da kayıt yap
-        map_scores = {
-            'epoch': epoch,
-            'mAP@0.3': map30,
-            'mAP@0.5': map50,
-            'mAP@0.75': map75
-        }
+def save_map_scores(map30, map50, map75, epoch, checkpoint_dir):
+    map_scores = {
+        'epoch': epoch,
+        'mAP@0.3': map30,
+        'mAP@0.5': map50,
+        'mAP@0.75': map75
+    }
 
-        with open(f"{checkpoint_dir}/map_scores_epoch_{epoch}.yaml", 'w') as f:
-            yaml.dump(map_scores, f, Dumper=NumpyDumper)
+    with open(f"{checkpoint_dir}/map_scores_epoch_{epoch}.yaml", 'w') as f:
+        yaml.dump(map_scores, f, Dumper=NumpyDumper)
 
-        with open(f"{checkpoint_dir}/map_scores.txt", 'a') as f:
-            f.write(f"Epoch {epoch}:\n")
-            f.write(f"mAP@0.3: {map30}\n")
-            f.write(f"mAP@0.5: {map50}\n")
-            f.write(f"mAP@0.75: {map75}\n")
-            f.write("\n")
+    with open(f"{checkpoint_dir}/map_scores.txt", 'a') as f:
+        f.write(f"Epoch {epoch}:\n")
+        f.write(f"mAP@0.3: {map30}\n")
+        f.write(f"mAP@0.5: {map50}\n")
+        f.write(f"mAP@0.75: {map75}\n")
+        f.write("\n")
 
+    # wandb log the mAP scores (only log on rank 0)
+    if torch.distributed.get_rank() == 0:
         wandb.log({
             "mAP@0.3": map30,
             "mAP@0.5": map50,
             "mAP@0.75": map75,
         }, step=epoch)
 
-def plot_map_scores(scores_dir, output_path, rank):
-    if rank == 0:  # Sadece rank 0'da plot oluştur
-        epochs = []
-        map_30 = []
-        map_50 = []
-        map_75 = []
+def plot_map_scores(scores_dir, output_path):
+    epochs = []
+    map_30 = []
+    map_50 = []
+    map_75 = []
 
-        for yaml_file in sorted(glob.glob(f"{scores_dir}/map_scores_epoch_*.yaml")):
-            with open(yaml_file, 'r') as f:
-                data = yaml.safe_load(f)
-                epochs.append(data['epoch'])
-                map_30.append(data['mAP@0.3'])
-                map_50.append(data['mAP@0.5'])
-                map_75.append(data['mAP@0.75'])
+    for yaml_file in sorted(glob.glob(f"{scores_dir}/map_scores_epoch_*.yaml")):
+        with open(yaml_file, 'r') as f:
+            data = yaml.safe_load(f)
+            epochs.append(data['epoch'])
+            map_30.append(data['mAP@0.3'])
+            map_50.append(data['mAP@0.5'])
+            map_75.append(data['mAP@0.75'])
 
-        plt.plot(epochs, map_30, label='mAP@0.3')
-        plt.plot(epochs, map_50, label='mAP@0.5')
-        plt.plot(epochs, map_75, label='mAP@0.75')
-        plt.xlabel('Epoch')
-        plt.ylabel('mAP')
-        plt.title('Mean Average Precision (mAP) Over Epochs')
-        plt.legend()
-        plt.grid(True)
+    plt.plot(epochs, map_30, label='mAP@0.3')
+    plt.plot(epochs, map_50, label='mAP@0.5')
+    plt.plot(epochs, map_75, label='mAP@0.75')
+    plt.xlabel('Epoch')
+    plt.ylabel('mAP')
+    plt.title('Mean Average Precision (mAP) Over Epochs')
+    plt.legend()
+    plt.grid(True)
 
-        plt.xticks(ticks=epochs, labels=epochs)
+    plt.xticks(ticks=epochs, labels=epochs)
 
-        output_path = f"{output_path}/map_scores.png"
+    output_path = f"{output_path}/map_scores.png"
 
-        plt.savefig(output_path)
-        plt.close()
+    plt.savefig(output_path)
+    plt.close()
 
+    # wandb log the final mAP scores plot (only log on rank 0)
+    if torch.distributed.get_rank() == 0:
         wandb.log({"mAP Scores Plot": wandb.Image(output_path)})
 
-def train(rank, world_size, config):
-    setup(rank, world_size)
-    device = torch.device(f'cuda:{rank}')
 
-    # Sadece rank 0'da WandB başlat
-    if rank == 0:
+def main():
+    # Initialize process group for DDP
+    torch.distributed.init_process_group(backend='nccl')
+    config = load_config()
+
+    wanb_api_key_path = config['wandb']['api_key_path']
+    def set_wandb_api_key():
+        with open(wanb_api_key_path, 'r') as f:
+            api_key = f.readline().strip()
+        os.environ['WANDB_API_KEY'] = api_key
+
+    # wandb API key ayarı (only set on rank 0)
+    if torch.distributed.get_rank() == 0:
+        set_wandb_api_key()
+
+    device = torch.device('cuda', torch.distributed.get_rank())
+
+    # wandb başlat (only initialize on rank 0)
+    if torch.distributed.get_rank() == 0:
         wandb.init(project="astro-object-detection", config=config)
 
+    # Datasetlerin yüklenmesi
     train_dataset = AstroDataset(config=config, set_type='training')
     val_dataset = AstroDataset(config=config, set_type='validation')
+    line_train_dataset = LineDataset(config=config, set_type='training')
+    line_val_dataset = LineDataset(config=config, set_type='validation')
 
-    train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
-    val_sampler = DistributedSampler(val_dataset, num_replicas=world_size, rank=rank)
+    # Distributed Sampler'ların eklenmesi
+    train_sampler = DistributedSampler(train_dataset)
+    val_sampler = DistributedSampler(val_dataset)
+    line_train_sampler = DistributedSampler(line_train_dataset)
+    line_val_sampler = DistributedSampler(line_val_dataset)
 
-    train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], shuffle=False, num_workers=config['model']['num_workers'], collate_fn=collate_fn, sampler=train_sampler)
-    val_loader = DataLoader(val_dataset, batch_size=config['model']['batch_size'], shuffle=False, num_workers=config['model']['num_workers'], collate_fn=collate_fn, sampler=val_sampler)
+    # DataLoader'ların oluşturulması
+    train_loader = DataLoader(train_dataset, batch_size=config['model']['batch_size'], sampler=train_sampler, num_workers=config['model']['num_workers'], collate_fn=collate_fn)
+    val_loader = DataLoader(val_dataset, batch_size=config['model']['batch_size'], sampler=val_sampler, num_workers=config['model']['num_workers'], collate_fn=collate_fn)
+    line_train_loader = DataLoader(line_train_dataset, batch_size=config['model']['batch_size'], sampler=line_train_sampler, num_workers=config['model']['num_workers'], collate_fn=collate_fn)
+    line_val_loader = DataLoader(line_val_dataset, batch_size=config['model']['batch_size'], sampler=line_val_sampler, num_workers=config['model']['num_workers'], collate_fn=collate_fn)
 
     model = faster_rcnn_resnet50_model(config['model']['num_classes'])
     model.to(device)
-    model = DDP(model, device_ids=[rank])
 
-    params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = optim.SGD(params, lr=config['model']['learning_rate'], momentum=0.9, weight_decay=0.0005)
+    # Modeli DDP ile sarmalama
+    model = DDP(model, device_ids=[torch.distributed.get_rank()])
+
+    optimizer = optim.SGD([p for p in model.parameters() if p.requires_grad], lr=config['model']['learning_rate'], momentum=0.9, weight_decay=0.0005)
 
     num_epochs = config['model']['num_epochs']
 
-    with ThreadPoolExecutor() as executor:
-        future_map_scores = None
+    for epoch in range(num_epochs):
+        # Sampler'ları yeniden düzenleme (her epoch başında gerekli)
+        train_sampler.set_epoch(epoch)
+        line_train_sampler.set_epoch(epoch)
 
-        for epoch in range(num_epochs):
-            train_sampler.set_epoch(epoch)
-            train_one_epoch(model, optimizer, train_loader, device, epoch, rank)
+        # Çizgiler için eğitim
+        train_one_epoch(model, optimizer, line_train_loader, device, epoch)
+        
+        # Yıldızlar için eğitim
+        train_one_epoch(model, optimizer, train_loader, device, epoch)
 
-            if future_map_scores is not None:
-                map_results = future_map_scores.result()
-                save_map_scores(*map_results, epoch-1, config['results']['log_dir'], rank)
+        # Yıldızlar için değerlendirme
+        all_true_boxes, all_pred_boxes = evaluate(model, val_loader, device)
+        map_results = map_scores(all_true_boxes, all_pred_boxes)
+        if torch.distributed.get_rank() == 0:
+            save_map_scores(*map_results, epoch, config['results']['log_dir'])
 
-            all_true_boxes, all_pred_boxes = evaluate(model, val_loader, device, rank)
-            future_map_scores = executor.submit(map_scores, all_true_boxes, all_pred_boxes)
+        # Çizgiler için değerlendirme
+        all_true_boxes, all_pred_boxes = evaluate(model, line_val_loader, device)
+        map_results = map_scores(all_true_boxes, all_pred_boxes)
+        if torch.distributed.get_rank() == 0:
+            save_map_scores(*map_results, epoch, config['results']['log_dir'])
 
-            if epoch % config['training']['save_interval'] == 0 and rank == 0:
-                model_checkpoint_path = f"{config['training']['checkpoint_dir']}/model_epoch_{epoch}.pth"
-                torch.save(model.state_dict(), model_checkpoint_path)
-                wandb.log({"model_checkpoint_path": model_checkpoint_path})
+        # Model checkpoint kaydetme (only save on rank 0)
+        if epoch % config['training']['save_interval'] == 0 and torch.distributed.get_rank() == 0:
+            torch.save(model.state_dict(), f"{config['training']['checkpoint_dir']}/model_epoch_{epoch}.pth")
 
-        if future_map_scores is not None:
-            map_results = future_map_scores.result()
-            save_map_scores(*map_results, num_epochs-1, config['results']['log_dir'], rank)
+    if torch.distributed.get_rank() == 0:
+        torch.save(model.state_dict(), f"{config['training']['checkpoint_dir']}/model_final.pth")
 
-    if rank == 0:
-        final_model_path = f"{config['training']['checkpoint_dir']}/model_final.pth"
-        torch.save(model.state_dict(), final_model_path)
-        wandb.log({"final_model_path": final_model_path})
-        plot_map_scores(config['results']['log_dir'], config['results']['outputs_dir'], rank)
+        plot_map_scores(config['results']['log_dir'], config['results']['outputs_dir'])
+
         wandb.finish()
 
-    cleanup()
-
-def main():
-    config = load_config()
-    world_size = torch.cuda.device_count()
-    mp.spawn(train, args=(world_size, config), nprocs=world_size, join=True)
+    # DDP'yi sonlandırma
+    torch.distributed.destroy_process_group()
 
 if __name__ == "__main__":
     main()
