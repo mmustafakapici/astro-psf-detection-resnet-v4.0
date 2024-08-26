@@ -3,6 +3,9 @@
 # Python environment
 PYTHON=python
 
+NUM_GPUS=2
+
+
 # Configuration file
 CONFIG=config/config.yaml
 
@@ -53,9 +56,11 @@ train:
 	@echo "Training model..."
 	$(PYTHON) src/train.py
 
+
+
 train-DDP:
 	@echo "Training model Distributing Data Parallel..."
-	$(PYTHON) src/train-DDP.py
+	torchrun --nproc_per_node=$(NUM_GPUS) src/train-DDP.py
 
 test:
 	@echo "test data tests..."

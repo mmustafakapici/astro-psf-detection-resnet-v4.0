@@ -20,7 +20,6 @@ data:
   val_fits_number: 50
   
   bands: ['g'] 
-  
 
  # u-band (Ultraviolet)  Dalga Boyu: ~3540 Å  SDSS'deki en kısa dalga boylu banttır ve morötesi ışığı gözlemler.
   
@@ -45,14 +44,15 @@ model:
   num_classes: 2
   learning_rate: 0.0001
   num_epochs: 50
-  batch_size: 50 #40gb gpu usage in 50 batch
+  batch_size: 80 #40gb gpu usage in 50 batch
   num_workers: 4
   pretrained_weights: 'coco'  # 'default',  'imagenet' , 'coco' , 'voc'
 
 training:
   checkpoint_dir: 'results/checkpoints/'
   save_interval: 1
-  log_interval: 10
+  log_interval: 1
+  plot_interval: 1
 
 evaluation:
   eval_batch_size: 1
