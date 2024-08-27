@@ -67,7 +67,7 @@ train-DDP:
 
 test:
 	@echo "test data tests..."
-	$(PYTHON) src/test_test_data.py
+	$(PYTHON) src/test.py
 
 
 
