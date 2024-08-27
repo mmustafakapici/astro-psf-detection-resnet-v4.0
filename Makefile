@@ -14,6 +14,9 @@ all: setup create-dirs download-test-data download-sdss-data line-generate annot
 
 all-DDP: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control train-DDP test
 
+prepare: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control
+
+
 # Kurulum
 setup:
 	@echo "Setting up environment..."

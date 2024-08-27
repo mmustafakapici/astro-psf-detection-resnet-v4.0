@@ -188,26 +188,30 @@ def main():
 
         # Çizgiler için eğitim
         train_one_epoch(model, optimizer, line_train_loader, device, epoch)
-        
+
         # Yıldızlar için eğitim
         train_one_epoch(model, optimizer, train_loader, device, epoch)
 
-        # Yıldızlar için değerlendirme
-        all_true_boxes, all_pred_boxes = evaluate(model, val_loader, device)
-        map_results = map_scores(all_true_boxes, all_pred_boxes)
-        if torch.distributed.get_rank() == 0:
-            save_map_scores(*map_results, epoch, config['results']['log_dir'])
+        # Evaluate and log mAP scores every 5 epochs
+        if epoch % config['evaluation']['eval_interval'] == 0:
+            # Yıldızlar için değerlendirme
+            all_true_boxes, all_pred_boxes = evaluate(model, val_loader, device)
+            map_results = map_scores(all_true_boxes, all_pred_boxes)
+            if torch.distributed.get_rank() == 0:
+                save_map_scores(*map_results, epoch, config['results']['log_dir'])
 
-        # Çizgiler için değerlendirme
-        all_true_boxes, all_pred_boxes = evaluate(model, line_val_loader, device)
-        map_results = map_scores(all_true_boxes, all_pred_boxes)
-        if torch.distributed.get_rank() == 0:
-            save_map_scores(*map_results, epoch, config['results']['log_dir'])
+            # Çizgiler için değerlendirme
+            all_true_boxes, all_pred_boxes = evaluate(model, line_val_loader, device)
+            map_results = map_scores(all_true_boxes, all_pred_boxes)
+            if torch.distributed.get_rank() == 0:
+                save_map_scores(*map_results, epoch, config['results']['log_dir'])
 
         # Model checkpoint kaydetme (only save on rank 0)
         if epoch % config['training']['save_interval'] == 0 and torch.distributed.get_rank() == 0:
             torch.save(model.state_dict(), f"{config['training']['checkpoint_dir']}/model_epoch_{epoch}.pth")
 
+
+   
     if torch.distributed.get_rank() == 0:
         torch.save(model.state_dict(), f"{config['training']['checkpoint_dir']}/model_final.pth")
 
@@ -220,3 +224,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
