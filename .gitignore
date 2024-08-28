@@ -18,8 +18,6 @@ wandb/
 
 line-generator/generated_star_trails
 
-
-results-old
-results-old2
-data-old
+pred_input/
+pred_output/
 

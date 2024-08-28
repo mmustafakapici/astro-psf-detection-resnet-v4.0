@@ -1,68 +1,55 @@
 import os
 import torch
-import cv2
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
+from PIL import Image
+import numpy as np
 from astropy.io import fits
+from utils import load_config, visualize_results
 from model import faster_rcnn_resnet50_model
-from utils import load_config
 
-def load_image(image_path):
-    if image_path.endswith('.fits'):
-        hdul = fits.open(image_path)
-        image_data = hdul[0].data
-        hdul.close()
-        image = cv2.normalize(image_data, None, 0, 255, cv2.NORM_MINMAX).astype('uint8')
-        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)  # RGB formatına dönüştürme
-    else:
-        image = cv2.imread(image_path)
+def preprocess_image(image, config):
+    """Görüntüyü model girişi için ön işler."""
+    # Görüntüyü normalize et ve uint8 tipine dönüştür
+    image = (image - np.min(image)) / (np.max(image) - np.min(image))  # Normalize to [0, 1]
+    image = (image * 255).astype(np.uint8)  # Convert to uint8
+    
+    if config['model']['input_size']:
+        target_size = config['model']['input_size']
+        image = np.array(Image.fromarray(image).resize((target_size, target_size), Image.BILINEAR))
+    
     return image
 
-def predict_single_image(model, image, device):
-    model.eval()
-    image_tensor = torch.from_numpy(image).float().unsqueeze(0).permute(0, 3, 1, 2) / 255.0  # [B, C, H, W] formatında normalleştirilmiş tensor
-    image_tensor = image_tensor.to(device)
+def load_image(image_path, config):
+    if image_path.endswith('.png'):
+        image = Image.open(image_path).convert("RGB")
+        image = np.array(image)
+    elif image_path.endswith('.fits'):
+        with fits.open(image_path) as hdul:
+            image = hdul[0].data.astype(np.float32)
+            image = np.stack([image, image, image], axis=-1)  # RGB formatında 3 kanal olarak yükle
+    else:
+        raise ValueError(f"Unsupported image format: {image_path}")
     
+    return preprocess_image(image, config)
+
+def predict_and_visualize(model, image_path, device, save_dir, config):
+    image = load_image(image_path, config)
+    image_tensor = torch.tensor(image, dtype=torch.float32).permute(2, 0, 1).unsqueeze(0).to(device)
+
+    model.eval()
     with torch.no_grad():
         outputs = model(image_tensor)
+
+    pred_boxes = outputs[0]['boxes'].cpu().numpy()
+    pred_labels = outputs[0]['labels'].cpu().numpy()
+    scores = outputs[0]['scores'].cpu().numpy()
+
+    # Sonuçları kaydetme ve görselleştirme
+    file_name = os.path.splitext(os.path.basename(image_path))[0]
+    save_path = os.path.join(save_dir, f"{file_name}_predictions.png")
     
-    return outputs[0]  # Tek bir görüntü olduğu için [0] indeksini kullanıyoruz
-
-def draw_predictions(image, outputs, class_mapping, save_path):
-    fig, ax = plt.subplots(1, figsize=(12, 9))
-    ax.imshow(image)
-
-    boxes = outputs['boxes'].cpu().numpy()
-    labels = outputs['labels'].cpu().numpy()
-    scores = outputs['scores'].cpu().numpy()
-
-    for box, label, score in zip(boxes, labels, scores):
-        if score >= 0.5:  # Eşik değer (threshold) 0.5
-            xmin, ymin, xmax, ymax = box
-            width, height = xmax - xmin, ymax - ymin
-            color = 'red' if class_mapping[label] == 'source' else 'blue'
-
-            rect = patches.Rectangle((xmin, ymin), width, height, linewidth=2, edgecolor=color, facecolor='none')
-            ax.add_patch(rect)
-            ax.text(xmin, ymin - 5, f"{class_mapping[label]}: {score:.2f}", color=color, fontsize=12, weight='bold')
-
-    plt.axis('off')
-    plt.savefig(save_path, bbox_inches='tight', pad_inches=0)
-    plt.close()
-
-def process_images_in_folder(folder_path, save_folder, model, device, class_mapping):
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
-
-    for filename in os.listdir(folder_path):
-        if filename.endswith('.fits') or filename.endswith('.png'):
-            image_path = os.path.join(folder_path, filename)
-            save_path = os.path.join(save_folder, filename.replace('.fits', '.png'))
-            
-            image = load_image(image_path)
-            outputs = predict_single_image(model, image, device)
-            draw_predictions(image, outputs, class_mapping, save_path)
-            print(f"Processed {filename}, saved to {save_path}")
+    image = image_tensor.squeeze(0).permute(1, 2, 0).cpu().numpy()
+    visualize_results([image], [outputs[0]], save_path)
+    print(f"Saved predictions to {save_path}")
 
 def remove_module_prefix(state_dict):
     """DDP ile eğitilmiş modeldeki 'module.' önekini kaldırır."""
@@ -71,23 +58,28 @@ def remove_module_prefix(state_dict):
 def main():
     config = load_config()
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    
-    # Modeli yükleme
+
     model = faster_rcnn_resnet50_model(config['model']['num_classes'])
+    
+    # Model state_dict'i yükle ve DDP'den gelen 'module.' önekini kaldır
     state_dict = torch.load(f"{config['training']['checkpoint_dir']}/model_final.pth", map_location=device)
-    state_dict = remove_module_prefix(state_dict)  # Önekleri kaldır
+    state_dict = remove_module_prefix(state_dict)
     model.load_state_dict(state_dict)
     model.to(device)
 
-    # Sınıf eşlemesi
-    class_mapping = {0: 'source', 1: 'line'}
+    # Tahmin yapılacak dosya dizini
+    input_dir = config['inference']['input_dir']
+    save_dir = config['inference']['output_dir']
+    os.makedirs(save_dir, exist_ok=True)
 
-    # Tahminlerin kaydedileceği klasör
-    save_folder = os.path.join(config['results']['outputs_dir'], 'predictions')
-
-    # Klasördeki tüm görüntüleri işleme
-    folder_path = config['pred_dir']  # FITS veya PNG dosyalarını içeren klasör yolu
-    process_images_in_folder(folder_path, save_folder, model, device, class_mapping)
+    # Dizin içindeki her bir fotoğraf için tahmin yap
+    for file_name in os.listdir(input_dir):
+        file_path = os.path.join(input_dir, file_name)
+        if file_path.endswith(('.png', '.fits')):
+            print(f"Processing file: {file_name}")
+            predict_and_visualize(model, file_path, device, save_dir, config)
+        else:
+            print(f"Skipped unsupported file: {file_name}")
 
 if __name__ == "__main__":
     main()

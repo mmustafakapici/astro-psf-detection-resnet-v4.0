@@ -41,9 +41,9 @@ results:
 
 model:
   input_size: 512
-  num_classes: 3 # class sayısı +1 olması çünkü background var background = 0 
+  num_classes: 3 # class sayısı +1 olması çünkü background var background = 0
   learning_rate: 0.0001
-  num_epochs: 20
+  num_epochs: 200
   batch_size: 25 #40gb gpu usage in 50 batch
   num_workers: 4
   pretrained_weights: "coco" # 'default',  'imagenet' , 'coco' , 'voc'
@@ -67,4 +67,6 @@ lines:
   num_test: 50
   output_dir: "data/raw/lines"
 
-pred_dir: "pred"
+inference:
+  input_dir: "pred_input"
+  output_dir: "pred_output"
