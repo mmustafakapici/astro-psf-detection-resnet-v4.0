@@ -1,5 +1,5 @@
 # Default targets
-.PHONY: all all-DDP setup create-dirs download-test-data download-sdss-data annotate draw train test test-real clean help line-generate details
+.PHONY: all all-DDP setup create-dirs download-test-data download-sdss-data annotate draw train test test-real clean help line-generate details control single-pred
 # Python environment
 PYTHON=python
 
@@ -71,6 +71,9 @@ test:
 	@echo "test data tests..."
 	$(PYTHON) src/test.py
 
+single-pred:
+	@echo "Single prediction..."
+	$(PYTHON) src/single_pred.py
 
 
 # Temizlik

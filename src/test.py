@@ -10,14 +10,17 @@ from sklearn.metrics import precision_recall_curve, average_precision_score
 def test(model, astro_loader, line_loader, device, save_dir):
     model.eval()
     
-    class_mapping = {0: 'source', 1: 'line'}
+    class_mapping = {1: 'source', 2: 'line'}
     
     class_scores = {v: [] for v in class_mapping.keys()}
     class_labels = {v: [] for v in class_mapping.keys()}
     all_pred_boxes = []
     all_true_boxes = []
 
-    for loader_type, data_loader in [('astro', astro_loader), ('line', line_loader)]:
+    for loader_type, data_loader in [('astro', astro_loader),
+    
+     ('line', line_loader)
+     ]:
         for image_idx, (images, targets) in enumerate(tqdm(data_loader, desc=f"Testing {loader_type} data")):
             images = list(image.to(device) for image in images)
 

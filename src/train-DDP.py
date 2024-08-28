@@ -186,11 +186,15 @@ def main():
         train_sampler.set_epoch(epoch)
         line_train_sampler.set_epoch(epoch)
 
-        # Çizgiler için eğitim
-        train_one_epoch(model, optimizer, line_train_loader, device, epoch)
-
         # Yıldızlar için eğitim
         train_one_epoch(model, optimizer, train_loader, device, epoch)
+
+
+        
+        # Çizgiler için eğitim
+        train_one_epoch(model, optimizer, line_train_loader, device, epoch)
+        
+
 
         # Evaluate and log mAP scores every 5 epochs
         if epoch % config['evaluation']['eval_interval'] == 0:
@@ -200,11 +204,13 @@ def main():
             if torch.distributed.get_rank() == 0:
                 save_map_scores(*map_results, epoch, config['results']['log_dir'])
 
+            
             # Çizgiler için değerlendirme
             all_true_boxes, all_pred_boxes = evaluate(model, line_val_loader, device)
             map_results = map_scores(all_true_boxes, all_pred_boxes)
             if torch.distributed.get_rank() == 0:
                 save_map_scores(*map_results, epoch, config['results']['log_dir'])
+            
 
         # Model checkpoint kaydetme (only save on rank 0)
         if epoch % config['training']['save_interval'] == 0 and torch.distributed.get_rank() == 0:

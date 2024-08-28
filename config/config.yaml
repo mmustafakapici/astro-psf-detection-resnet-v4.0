@@ -1,70 +1,70 @@
 data:
-  raw_data_dir: 'data/raw/'
-  processed_data_dir: 'data/processed/'
-  annotations_dir: 'data/annotations/'
-  
-  training_annotations_dir: 'data/annotations/train/'
-  test_annotations_dir: 'data/annotations/test/'
-  validation_annotations_dir: 'data/annotations/val/'
-    
-  annotated_images_dir: 'data/annotated_images/'
-  annotated_training_images_dir: 'data/annotated_images/train/'
-  annotated_test_images_dir: 'data/annotated_images/test/'
-  annotated_validation_images_dir: 'data/annotated_images/val/'
-  
-  training_set_dir: 'data/raw/trainingset/'
-  validation_set_dir: 'data/raw/validationset/'
-  test_set_dir: 'data/raw/testset/'
-  real_set_dir: 'data/raw/testset_real/'
+  raw_data_dir: "data/raw/"
+  processed_data_dir: "data/processed/"
+  annotations_dir: "data/annotations/"
+
+  training_annotations_dir: "data/annotations/train/"
+  test_annotations_dir: "data/annotations/test/"
+  validation_annotations_dir: "data/annotations/val/"
+
+  annotated_images_dir: "data/annotated_images/"
+  annotated_training_images_dir: "data/annotated_images/train/"
+  annotated_test_images_dir: "data/annotated_images/test/"
+  annotated_validation_images_dir: "data/annotated_images/val/"
+
+  training_set_dir: "data/raw/trainingset/"
+  validation_set_dir: "data/raw/validationset/"
+  test_set_dir: "data/raw/testset/"
+  real_set_dir: "data/raw/testset_real/"
   train_fits_number: 300
   val_fits_number: 50
-  
-  bands: ['g'] 
 
- # u-band (Ultraviolet)  Dalga Boyu: ~3540 Å  SDSS'deki en kısa dalga boylu banttır ve morötesi ışığı gözlemler.
-  
- # g-band (Green)  Dalga Boyu: ~4770 Å  Görünür ışık spektrumunda yeşil bölgede yer alır.
-  
- # r-band (Red)  Dalga Boyu: ~6230 Å  Görünür ışık spektrumunda kırmızı bölgede yer alır.
-  
- # i-band (Near-Infrared)  Dalga Boyu: ~7620 Å  Görünür ışığın hemen ötesindeki kızılötesi bölgeyi gözlemler.
-  
- # z-band (Infrared)  Dalga Boyu: ~9130 Å  Kızılötesi ışığın biraz daha uzun dalga boyunu gözlemler.
+  bands: ["g"]
+
+  # u-band (Ultraviolet)  Dalga Boyu: ~3540 Å  SDSS'deki en kısa dalga boylu banttır ve morötesi ışığı gözlemler.
+
+  # g-band (Green)  Dalga Boyu: ~4770 Å  Görünür ışık spektrumunda yeşil bölgede yer alır.
+
+  # r-band (Red)  Dalga Boyu: ~6230 Å  Görünür ışık spektrumunda kırmızı bölgede yer alır.
+
+  # i-band (Near-Infrared)  Dalga Boyu: ~7620 Å  Görünür ışığın hemen ötesindeki kızılötesi bölgeyi gözlemler.
+
+  # z-band (Infrared)  Dalga Boyu: ~9130 Å  Kızılötesi ışığın biraz daha uzun dalga boyunu gözlemler.
 
 results:
-  results_dir: 'results/'
-  outputs_dir: 'results/outputs/'
-  model_dir: 'results/models/'
-  log_dir: 'results/logs/'
-  tensorboard_dir: 'results/tensorboard/'
-  wandb_dir: 'results/wandb/'
+  results_dir: "results/"
+  outputs_dir: "results/outputs/"
+  model_dir: "results/models/"
+  log_dir: "results/logs/"
+  tensorboard_dir: "results/tensorboard/"
+  wandb_dir: "results/wandb/"
 
 model:
-  input_size: 512 
-  num_classes: 2
+  input_size: 512
+  num_classes: 3 # class sayısı +1 olması çünkü background var background = 0 
   learning_rate: 0.0001
-  num_epochs: 200
+  num_epochs: 20
   batch_size: 25 #40gb gpu usage in 50 batch
   num_workers: 4
-  pretrained_weights: 'coco'  # 'default',  'imagenet' , 'coco' , 'voc'
+  pretrained_weights: "coco" # 'default',  'imagenet' , 'coco' , 'voc'
 
 training:
-  checkpoint_dir: 'results/checkpoints/'
+  checkpoint_dir: "results/checkpoints/"
   save_interval: 1
   log_interval: 1
   plot_interval: 1
 
 evaluation:
   eval_batch_size: 1
-  eval_interval: 10  # epoch per eval
+  eval_interval: 10 # epoch per eval
 
 wandb:
-  api_key_path: 'wandb_key.txt'
-
-
+  api_key_path: "wandb_key.txt"
 
 lines:
-  num_train: 250
+  num_train: 300
   num_val: 50
   num_test: 50
-  output_dir: 'data/raw/lines'
+  output_dir: "data/raw/lines"
+
+pred_dir: "pred"

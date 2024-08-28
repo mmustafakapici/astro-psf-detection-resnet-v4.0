@@ -43,7 +43,7 @@ class AstroDataset(Dataset):
             boxes, labels = self.load_annotation(annotation_path)
             
             # Class mapping: String etiketleri sayısal değerlere dönüştürme
-            class_mapping = {'source': 0}
+            class_mapping = {'source': 1}
             numeric_labels = [class_mapping[label] for label in labels]
             
             target["boxes"] = torch.as_tensor(boxes, dtype=torch.float32)
@@ -115,7 +115,7 @@ class LineDataset(Dataset):
             boxes, labels = self.load_annotation(annotation_path)
             
             # Class mapping: String etiketleri sayısal değerlere dönüştürme
-            class_mapping = {'line': 1}
+            class_mapping = {'line': 2}
             numeric_labels = [class_mapping[label] for label in labels]
             
             target["boxes"] = torch.as_tensor(boxes, dtype=torch.float32)
@@ -144,7 +144,24 @@ class LineDataset(Dataset):
 
 def collate_fn(batch):
     return tuple(zip(*batch))
+def write_dataset_summary(loader, dataset_name, file_path):
+    with open(file_path, 'a') as file:
+        file.write(f"{dataset_name} - Toplam Örnek Sayısı: {len(loader.dataset)}\n")
 
+def write_sample_data_to_file(loader, dataset_name, file_path):
+    with open(file_path, 'a') as file:
+        file.write(f"\n{dataset_name} - İlk 5 veri:\n")
+        for i, (images, targets) in enumerate(loader):
+            if i >= 5:  # İlk 5 örneği göstermek için
+                break
+            file.write(f"Örnek {i + 1}:\n")
+            file.write(f"Set Name: {dataset_name}\n")
+            file.write(f"Image Tensor Shape: {images[0].shape}\n")
+            file.write(f"Target Boxes: {targets[0]['boxes']}\n")
+            file.write(f"Target Labels: {targets[0]['labels']}\n")
+            file.write(f"Boxes dtype: {targets[0]['boxes'].dtype}\n")
+            file.write(f"Labels dtype: {targets[0]['labels'].dtype}\n")
+            file.write("-" * 30 + "\n")
 
 def main():
     config = load_config()
@@ -165,32 +182,29 @@ def main():
     line_val_loader = torch.utils.data.DataLoader(line_val_dataset, batch_size=2, shuffle=False, num_workers=4, collate_fn=collate_fn)
     line_test_loader = torch.utils.data.DataLoader(line_test_dataset, batch_size=2, shuffle=False, num_workers=4, collate_fn=collate_fn)
 
-    """
-    for images, targets in train_loader:
-        print(images)
-        print(targets)
+    # Bilgilerin kaydedileceği dosya yolu
+    file_path = "sample_data_output.txt"
 
-    for images, targets in val_loader:
-        print(images)
-        print(targets)
+    # Mevcut dosyayı temizle (eğer varsa)
+    open(file_path, 'w').close()
 
-    for images, targets in test_loader:
-        print(images)
-        print(targets)
+    # Her veri seti için özet bilgileri dosyaya yaz
+    write_dataset_summary(train_loader, "AstroDataset Training Set", file_path)
+    write_dataset_summary(val_loader, "AstroDataset Validation Set", file_path)
+    write_dataset_summary(test_loader, "AstroDataset Test Set", file_path)
 
-    for images, targets in line_train_loader:
-        print(images)
-        print(targets)
+    write_dataset_summary(line_train_loader, "LineDataset Training Set", file_path)
+    write_dataset_summary(line_val_loader, "LineDataset Validation Set", file_path)
+    write_dataset_summary(line_test_loader, "LineDataset Test Set", file_path)
 
-    for images, targets in line_val_loader:
-        print(images)
-        print(targets)
+    # Her veri seti için örnek bilgileri dosyaya yaz
+    write_sample_data_to_file(train_loader, "AstroDataset Training Set", file_path)
+    write_sample_data_to_file(val_loader, "AstroDataset Validation Set", file_path)
+    write_sample_data_to_file(test_loader, "AstroDataset Test Set", file_path)
 
-    for images, targets in line_test_loader:
-        print(images)
-        print(targets)
-
-    """
+    write_sample_data_to_file(line_train_loader, "LineDataset Training Set", file_path)
+    write_sample_data_to_file(line_val_loader, "LineDataset Validation Set", file_path)
+    write_sample_data_to_file(line_test_loader, "LineDataset Test Set", file_path)
 
 if __name__ == "__main__":
     main()

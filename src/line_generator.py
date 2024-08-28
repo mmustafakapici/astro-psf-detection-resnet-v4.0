@@ -40,15 +40,15 @@ def save_star_trail_image(index, output_dir, annotation_dir):
     power_scale = random.uniform(32, 64)
         
     image, annotations = generate_uniform_slope_star_trails(
-        image_size=(2048, 2048), 
-        line_length=64, 
+        image_size=(512, 512), 
+        line_length=16, 
         thickness=2, 
         slope=slope, 
         brightness_min=70, 
         brightness_max=255, 
         power_scale=power_scale, 
         num_lines=num_lines, 
-        blur_ksize=(9, 9) #ksize.width > 0 && ksize.width % 2 == 1 && ksize.height > 0 && ksize.height % 2 == 1 
+        blur_ksize=(3, 3) #ksize.width > 0 && ksize.width % 2 == 1 && ksize.height > 0 && ksize.height % 2 == 1 
     )
     
     filename = f'image_{index+1:04d}.png'
