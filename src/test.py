@@ -62,7 +62,7 @@ def test(model, astro_loader, line_loader, device, save_dir):
                 image_pred_boxes = [(pred_class, score, *box) for box, pred_class, score in zip(pred_boxes, pred_labels, scores)]
 
                 save_source_info(image_idx, image_pred_boxes, image_save_dir)
-                visualize_results([image.cpu()], [output], image_save_dir)
+                visualize_results([image.cpu()], [output], image_save_dir , threshold=0.5)
                 results_xaml_path = os.path.join(image_save_dir, 'results.xaml')
                 save_results_to_file([output], results_xaml_path, format='xaml')
 

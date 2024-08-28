@@ -125,13 +125,14 @@ def mean_average_precision(pred_boxes, true_boxes, iou_threshold=0.5, num_classe
     mAP = sum(average_precisions) / len(average_precisions)
     return mAP
 
-def visualize_results(images, outputs, save_dir, threshold=0.5):
+
+def visualize_results(images, outputs, save_dir, threshold=0.5, dpi=300):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
     for i, (image, output) in enumerate(zip(images, outputs)):
-        fig, ax = plt.subplots(1, figsize=(12, 9))
-        ax.imshow(image.permute(1, 2, 0).cpu().numpy())
+        fig, ax = plt.subplots(1, figsize=(9, 9), dpi=dpi)  # DPI değeri ayarlandı
+        ax.imshow(image.permute(1, 2, 0).cpu().numpy(), cmap='gray')
 
         boxes = output['boxes'].cpu().numpy()
         labels = output['labels'].cpu().numpy()
@@ -139,12 +140,13 @@ def visualize_results(images, outputs, save_dir, threshold=0.5):
 
         for box, label, score in zip(boxes, labels, scores):
             if score > threshold:
-                color = 'r' if label == 0 else 'b'
-                ax.add_patch(plt.Rectangle((box[0], box[1]), box[2] - box[0], box[3] - box[1], fill=False, color=color, linewidth=2))
-                ax.text(box[0], box[1] - 2, f'{label}: {score:.3f}', color=color, fontsize=12, bbox=dict(facecolor='yellow', alpha=0.5))
+                color = 'r' if label == 1 else 'b'
+                ax.add_patch(plt.Rectangle((box[0], box[1]), box[2] - box[0], box[3] - box[1], fill=False, color=color, linewidth=1))
+                ax.text(box[0], box[1] - 2, f'{label}: {score:.3f}', color=color, fontsize=6, bbox=dict(facecolor='white', alpha=0.1))
 
-        plt.axis('off')
-        plt.savefig(os.path.join(save_dir, f'image_{i}.png'))
+        ax.axis('off')  # Kenarlıkları kaldır
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)  # Kenarlıkları tamamen kaldırmak için margin ayarı
+        plt.savefig(os.path.join(save_dir, f'image_{i}.png'), bbox_inches='tight', pad_inches=0)
         plt.close()
 
 def save_results_to_file(results, save_path, format='xaml'):
