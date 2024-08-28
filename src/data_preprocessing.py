@@ -41,8 +41,13 @@ class AstroDataset(Dataset):
         if self.set_type in ['training', 'validation', 'test'] and self.annotations:
             annotation_path = os.path.join(self.annotations_dir, f"{set_name}.xml")
             boxes, labels = self.load_annotation(annotation_path)
+            
+            # Class mapping: String etiketleri sayısal değerlere dönüştürme
+            class_mapping = {'source': 0}
+            numeric_labels = [class_mapping[label] for label in labels]
+            
             target["boxes"] = torch.as_tensor(boxes, dtype=torch.float32)
-            target["labels"] = torch.as_tensor(labels, dtype=torch.int64)
+            target["labels"] = torch.as_tensor(numeric_labels, dtype=torch.int64)
 
         if hasattr(self, 'transforms') and self.transforms:
             images_tensor, target = self.transforms(images_tensor, target)
@@ -56,7 +61,7 @@ class AstroDataset(Dataset):
         labels = []
         for obj in root.findall('object'):
             label = obj.find('name').text
-            labels.append(0)  # Label 0 for all sources (stars)
+            labels.append(label)  
             bbox = obj.find('bndbox')
             xmin = int(bbox.find('xmin').text)
             ymin = int(bbox.find('ymin').text)
@@ -108,8 +113,13 @@ class LineDataset(Dataset):
             annotation_name = img_name.replace('.png', '.csv')
             annotation_path = os.path.join(self.annotations_dir, annotation_name)
             boxes, labels = self.load_annotation(annotation_path)
+            
+            # Class mapping: String etiketleri sayısal değerlere dönüştürme
+            class_mapping = {'line': 1}
+            numeric_labels = [class_mapping[label] for label in labels]
+            
             target["boxes"] = torch.as_tensor(boxes, dtype=torch.float32)
-            target["labels"] = torch.as_tensor(labels, dtype=torch.int64)
+            target["labels"] = torch.as_tensor(numeric_labels, dtype=torch.int64)
 
         if hasattr(self, 'transforms') and self.transforms:
             image_tensor, target = self.transforms(image_tensor, target)
@@ -126,13 +136,11 @@ class LineDataset(Dataset):
             for row in reader:
                 xmin, ymin, xmax, ymax = map(int, row)
                 bboxes.append([xmin, ymin, xmax, ymax])
-                labels.append(1)
+                labels.append('line')  # String olarak ekleme
         return bboxes, labels
 
     def __len__(self):
         return len(self.imgs)
-
-
 
 def collate_fn(batch):
     return tuple(zip(*batch))

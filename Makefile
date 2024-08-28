@@ -10,11 +10,13 @@ NUM_GPUS=2
 CONFIG=config/config.yaml
 
 # Default target
+
+prepare: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control
+
 all: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control train test
 
 all-DDP: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control train-DDP test
 
-prepare: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control
 
 
 # Kurulum

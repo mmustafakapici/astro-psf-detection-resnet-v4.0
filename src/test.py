@@ -9,14 +9,13 @@ from sklearn.metrics import precision_recall_curve, average_precision_score
 
 def test(model, astro_loader, line_loader, device, save_dir):
     model.eval()
+    
+    class_mapping = {0: 'source', 1: 'line'}
+    
+    class_scores = {v: [] for v in class_mapping.keys()}
+    class_labels = {v: [] for v in class_mapping.keys()}
     all_pred_boxes = []
     all_true_boxes = []
-    class_scores = {0: [], 
-                    1: [] 
-                    }
-    class_labels = {0: [],
-                    1: [] 
-                    }
 
     for loader_type, data_loader in [('astro', astro_loader), ('line', line_loader)]:
         for image_idx, (images, targets) in enumerate(tqdm(data_loader, desc=f"Testing {loader_type} data")):
@@ -32,44 +31,55 @@ def test(model, astro_loader, line_loader, device, save_dir):
                 pred_labels = output['labels'].cpu().numpy()
                 scores = output['scores'].cpu().numpy()
 
-                # İkili sınıflandırma için etiketler ve skorları ayarlayın
-                for label, score in zip(pred_labels, scores):
-                    if label in class_scores:
-                        class_labels[label].append(1)
-                        class_scores[label].append(score)
-                        other_class = 1 - label
-                        class_labels[other_class].append(0)
-                        class_scores[other_class].append(score)
+                # Class label and score alignment
+                if len(true_labels) > 0:
+                    for true_label, pred_label, score in zip(true_labels, pred_labels, scores):
+                        true_class = int(true_label)
+                        pred_class = int(pred_label)
+
+                        # Debugging outputs
+                        print(f"True class: {true_class}, Pred class: {pred_class}, Score: {score}")
+
+                        class_labels[true_class].append(1)
+                        class_scores[true_class].append(score)
+
+                        for other_class in class_scores.keys():
+                            if other_class != true_class:
+                                class_labels[other_class].append(0)
+                                class_scores[other_class].append(0)
 
                 all_true_boxes.extend(true_boxes)
                 all_pred_boxes.extend(pred_boxes)
 
-                # Save source info and results for each image
-                image_save_dir = os.path.join(save_dir, f'{loader_type}_image_{image_idx+1:04d}')
+                # Save source info and visualize results
+                images_folder = os.path.join(save_dir, 'images')
+                os.makedirs(images_folder, exist_ok=True)
+                image_save_dir = os.path.join(images_folder, f'{loader_type}_image_{image_idx+1:04d}')
                 os.makedirs(image_save_dir, exist_ok=True)
-                image_pred_boxes = [(0, label, score, *box) for box, label, score in zip(pred_boxes, pred_labels, scores)]
-                
-                save_source_info(image_idx, image_pred_boxes, image_save_dir)
+                image_pred_boxes = [(pred_class, score, *box) for box, pred_class, score in zip(pred_boxes, pred_labels, scores)]
 
-                # Save and visualize results
+                save_source_info(image_idx, image_pred_boxes, image_save_dir)
                 visualize_results([image.cpu()], [output], image_save_dir)
-                
-                # Save results in XAML format
                 results_xaml_path = os.path.join(image_save_dir, 'results.xaml')
                 save_results_to_file([output], results_xaml_path, format='xaml')
 
-    # Calculate and visualize metrics for the entire dataset
     metrics_save_dir = os.path.join(save_dir, 'metrics')
     os.makedirs(metrics_save_dir, exist_ok=True)
     print(f"Saving metrics to {metrics_save_dir}")
     calculate_and_visualize_metrics(all_pred_boxes, all_true_boxes, metrics_save_dir)
     
-    # Save Precision-Recall curves for each class
-    for class_id in class_scores.keys():
+    # Precision-Recall curve calculation
+    for class_id in class_mapping.keys():
+        if len(class_labels[class_id]) != len(class_scores[class_id]):
+            print(f"Warning: Length mismatch for class {class_id}. Skipping Precision-Recall curve calculation.")
+            continue
+        if len(class_labels[class_id]) == 0 or len(class_scores[class_id]) == 0:
+            print(f"No valid data for class {class_id}. Skipping Precision-Recall curve calculation.")
+            continue
         precisions, recalls, _ = precision_recall_curve(class_labels[class_id], class_scores[class_id])
         ap_score = average_precision_score(class_labels[class_id], class_scores[class_id])
-        pr_curve_path = os.path.join(metrics_save_dir, f'precision_recall_curve_class_{class_id}.png')
-        print(f"Saving Precision-Recall curve for class {class_id} to {pr_curve_path}")
+        pr_curve_path = os.path.join(metrics_save_dir, f'precision_recall_curve_class_{class_mapping[class_id]}.png')
+        print(f"Saving Precision-Recall curve for class {class_mapping[class_id]} to {pr_curve_path}")
         save_precision_recall_curve(precisions, recalls, ap_score, pr_curve_path)
 
 def remove_module_prefix(state_dict):
@@ -89,7 +99,7 @@ def main():
     model = faster_rcnn_resnet50_model(config['model']['num_classes'])
     
     # Model state_dict'i yükle ve DDP'den gelen 'module.' önekini kaldır
-    state_dict = torch.load(f"{config['training']['checkpoint_dir']}/model_final.pth")
+    state_dict = torch.load(f"{config['training']['checkpoint_dir']}/model_final.pth", map_location=device)
     state_dict = remove_module_prefix(state_dict)
     model.load_state_dict(state_dict)
     

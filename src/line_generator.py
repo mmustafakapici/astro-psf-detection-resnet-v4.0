@@ -36,7 +36,7 @@ def generate_uniform_slope_star_trails(image_size=(512, 512), line_length=100, t
 
 def save_star_trail_image(index, output_dir, annotation_dir):
     slope = random.randint(10, 80)
-    num_lines = random.randint(50, 400)
+    num_lines = random.randint(20, 50)
     power_scale = random.uniform(32, 64)
         
     image, annotations = generate_uniform_slope_star_trails(
@@ -44,7 +44,7 @@ def save_star_trail_image(index, output_dir, annotation_dir):
         line_length=64, 
         thickness=2, 
         slope=slope, 
-        brightness_min=30, 
+        brightness_min=70, 
         brightness_max=255, 
         power_scale=power_scale, 
         num_lines=num_lines, 
