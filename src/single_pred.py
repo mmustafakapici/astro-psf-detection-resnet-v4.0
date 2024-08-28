@@ -8,6 +8,9 @@ from model import faster_rcnn_resnet50_model
 def load_image(image_path, device):
     """Görüntüyü yükler, tek kanala çevirir ve modele uygun hale getirir."""
     image = Image.open(image_path).convert("L")  # Tek kanala çevir
+    # görüntüye gain ekleyelim
+    image = T.functional.adjust_contrast(image, 1.5)
+
     transform = T.Compose([
         T.ToTensor(),  # Pytorch tensor formatına çevir
     ])
