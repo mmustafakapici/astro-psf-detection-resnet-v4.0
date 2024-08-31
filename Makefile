@@ -1,10 +1,9 @@
 # Default targets
-.PHONY: all all-DDP setup create-dirs download-test-data download-sdss-data annotate draw train test test-real clean help line-generate details control single-pred
+.PHONY:  all-DDP setup create-dirs download-test-data download-sdss-data annotate draw train-DDP test test-real clean help line-generate details control single-pred
 # Python environment
 PYTHON=python
 
 NUM_GPUS=2
-
 
 # Configuration file
 CONFIG=config/config.yaml
@@ -13,10 +12,7 @@ CONFIG=config/config.yaml
 
 prepare: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control
 
-all: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control train test
-
 all-DDP: setup create-dirs download-test-data download-sdss-data line-generate annotate details draw control train-DDP test
-
 
 
 # Kurulum
@@ -52,16 +48,9 @@ draw:
 	@echo "Drawing annotations on images sets..."
 	$(PYTHON) src/draw_annotations.py
 
-
 control:
 	@echo "Controling annotations..."
 	$(PYTHON) src/data_preprocessing.py
-
-train:
-	@echo "Training model..."
-	$(PYTHON) src/train.py
-
-
 
 train-DDP:
 	@echo "Training model Distributing Data Parallel..."
@@ -91,20 +80,20 @@ clean:
 # Yardım
 help:
 	@echo "Available targets:"
-	@echo "  make all:            Run all targets"
-	@echo "  make create-dirs:    Create directories"
-	@echo "  make download-test-data:  Download and extract tests data"
-	@echo "  make download-sdss-data:  Download and extract sdss (train - val) data"
-	@echo "  make annotate:       Annotate code with type hints"
-	@echo "  make line-generate:  Generate lines"
-	@echo "  make control:        Control annotations"
-	@echo "  make details:        Extract details"
-	@echo "  make draw:           Draw annotations on images sets"
-	@echo "  make train:          Train model"
-	@echo "  make test:           Run tests on test data"
-	@echo "  make clean:          Clean temporary files"
-	@echo "  make setup:          Set up environment"
-	@echo "  make help:           Show this help message"
+	@echo "  make all:            		Run all targets"
+	@echo "  make create-dirs:    		Create directories"
+	@echo "  make download-test-data:	Download and extract tests data"
+	@echo "  make download-sdss-data:	Download and extract sdss (train - val) data"
+	@echo "  make annotate:       		Annotate code with type hints"
+	@echo "  make line-generate:  		Generate lines"
+	@echo "  make control:        		Control annotations"
+	@echo "  make details:        		Extract details"
+	@echo "  make draw:           		Draw annotations on images sets"
+	@echo "  make train-DDP:      		Train model"
+	@echo "  make test:           		Run tests on test data"
+	@echo "  make clean:          		Clean temporary files"
+	@echo "  make setup:          		Set up environment"
+	@echo "  make help:           		Show this help message"
 
 
 

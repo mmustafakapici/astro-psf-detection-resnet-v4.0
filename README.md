@@ -158,6 +158,6 @@ Bu proje MIT Lisansı ile lisanslanmıştır. Daha fazla bilgi için [LICENSE](L
 
 Bu proje hakkında sorularınız veya önerileriniz için [m.mustafakapici@gmail.com](mailto:m.mustafakapici@gmail.com) adresine e-posta gönderebilirsiniz.
 
-Ayrıca projenin GitHub deposunu ziyaret ederek geri bildirim bırakabilir veya katkıda bulunabilirsiniz: [GitHub - Astro PSF Detection](https://github.com/mmustafakapici/astro-psf-detection).
+Ayrıca projenin GitHub deposunu ziyaret ederek geri bildirim bırakabilir veya katkıda bulunabilirsiniz: [GitHub - Astro Object Detection](https://github.com/mmustafakapici/astro-object-detection).
 
 ---
