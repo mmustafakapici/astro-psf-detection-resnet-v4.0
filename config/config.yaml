@@ -16,7 +16,7 @@ data:
   validation_set_dir: "data/raw/validationset/"
   test_set_dir: "data/raw/testset/"
   real_set_dir: "data/raw/testset_real/"
-  train_fits_number: 300
+  train_fits_number: 250
   val_fits_number: 50
 
   bands: ["g"]
@@ -62,7 +62,7 @@ wandb:
   api_key_path: "wandb_key.txt"
 
 lines:
-  num_train: 300
+  num_train: 250
   num_val: 50
   num_test: 50
   output_dir: "data/raw/lines"

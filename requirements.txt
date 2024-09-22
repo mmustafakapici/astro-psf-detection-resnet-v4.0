@@ -3,41 +3,41 @@ torch==2.2.0
 torchvision==0.17.0
 
 # Numerical and data processing
-numpy
-pandas
+numpy==1.24.1
+pandas==2.2.3
 
 # Astronomy and FITS file handling
-astropy
-photutils
+astropy==6.1.3
+photutils==1.13.0
 
 # Image processing and visualization
-opencv-python-headless
-matplotlib
-scikit-image
-scikit-learn
-scipy
+opencv-python-headless==4.10.0.84
+matplotlib==3.9.2
+scikit-image==0.24.0
+scikit-learn==1.5.2
+scipy==1.14.1
 
 # Logging and progress tracking
-tqdm
+tqdm==4.66.5
 
 # Configuration and YAML handling
-pyyaml
+pyyaml==6.0.1
 
-notebook
+notebook==6.5.5
 
 # PyTorch Lightning for training
-torchmetrics
+torchmetrics==1.4.2
 torchmetrics[detection]
 
 # Optional dependencies
-wandb 
-tensorboard 
-torchsummary 
-netron 
-onnx 
-torchviz
+wandb==0.18.1
+tensorboard==2.17.1
+torchsummary==1.5.1
+netron==7.9.0
+onnx==1.16.2
+torchviz==0.0.2
 
-astroquery
+astroquery==0.4.7
 
-sep
+sep==1.2.1
 

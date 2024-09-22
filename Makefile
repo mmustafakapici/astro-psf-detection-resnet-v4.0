@@ -3,7 +3,7 @@
 # Python environment
 PYTHON=python
 
-NUM_GPUS=2
+NUM_GPUS=1
 
 # Configuration file
 CONFIG=config/config.yaml
